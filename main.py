@@ -2,11 +2,10 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from google.cloud import bigquery
 
 app = FastAPI()
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # This tells the guard to let everyone in for now
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,  # <--- Change this to False
     allow_methods=["*"],
     allow_headers=["*"],
 )
