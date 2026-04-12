@@ -196,3 +196,12 @@ def get_property_summary(property_id: int, client: bigquery.Client = Depends(get
         return summary
     else:
         return {"error": "Property not found or calculation failed."}
+
+import os
+
+# Your routes go here...
+
+if __name__ == '__main__':
+    # Grab the port from the environment, or default to 8080
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
