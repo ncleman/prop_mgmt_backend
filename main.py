@@ -3,6 +3,14 @@ from google.cloud import bigquery
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # This tells the guard to let everyone in for now
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 PROJECT_ID = "property-management-app-492514"
 DATASET = "property_mgmt"
 
