@@ -1,3 +1,5 @@
+from fastapi.responses import HTMLResponse
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from google.cloud import bigquery
 
@@ -219,6 +221,42 @@ import os
 import uvicorn
 
 # ... (all your other code stays the same) ...
+
+@app.get("/", response_class=HTMLResponse)
+async def read_items():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Property Management</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-100 p-8">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-3xl font-bold mb-6">Property Dashboard</h1>
+            <div id="properties" class="grid gap-4">
+                <p>Loading properties...</p>
+            </div>
+        </div>
+
+        <script>
+            async function loadProps() {
+                const res = await fetch('/properties');
+                const data = await res.json();
+                const container = document.getElementById('properties');
+                container.innerHTML = data.map(p => `
+                    <div class="bg-white p-4 rounded shadow">
+                        <h2 class="font-bold text-xl">${p.name}</h2>
+                        <p>${p.address}</p>
+                        <p class="text-blue-600 font-bold">$${p.monthly_rent || 0}/mo</p>
+                    </div>
+                `).join('') || '<p>No properties found.</p>';
+            }
+            loadProps();
+        </script>
+    </body>
+    </html>
+    """
 
 if __name__ == "__main__":
     # Grab the port from the environment, or default to 8080
