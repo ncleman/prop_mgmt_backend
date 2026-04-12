@@ -198,10 +198,11 @@ def get_property_summary(property_id: int, client: bigquery.Client = Depends(get
         return {"error": "Property not found or calculation failed."}
 
 import os
+import uvicorn
 
-# Your routes go here...
+# ... (all your other code stays the same) ...
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Grab the port from the environment, or default to 8080
     port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    uvicorn.run(app, host="0.0.0.0", port=port)
