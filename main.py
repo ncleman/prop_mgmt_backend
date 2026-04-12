@@ -72,6 +72,17 @@ class ExpenseCreate(BaseModel):
     category: str
     description: Optional[str] = None
 
+class PropertyCreate(BaseModel):
+    property_id: int
+    name: str
+    address: str
+    tenant_name: str
+
+class PropertyUpdate(BaseModel):
+    name: str
+    address: str
+    tenant_name: str
+
 # ==========================================
 # REQUIRED BASE ENDPOINTS
 # ==========================================
