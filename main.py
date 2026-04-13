@@ -12,7 +12,7 @@ from pydantic import BaseModel
 app = FastAPI()
 
 # ---------------------------------------------------------------------------
-# CORS & Configuration
+# CORS Setup
 # ---------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
@@ -26,24 +26,29 @@ PROJECT_ID = "property-management-app-492514"
 DATASET = "property_mgmt"
 
 # ---------------------------------------------------------------------------
-# Pydantic Models (Aligned with IA 8 Specs)
+# IA 8 Models [cite: 143, 145, 146]
 # ---------------------------------------------------------------------------
 class PropertyCreate(BaseModel):
     property_id: int
-    name: str # 
-    address: str # 
-    tenant_name: Optional[str] = None # 
+    name: str
+    address: str
+    tenant_name: Optional[str] = None
+
+class PropertyUpdate(BaseModel):
+    name: str
+    address: str
+    tenant_name: Optional[str] = None
 
 class IncomeCreate(BaseModel):
-    amount: float # 
-    payment_date: date # 
-    description: Optional[str] = None # 
+    amount: float
+    payment_date: date
+    description: Optional[str] = None
 
 class ExpenseCreate(BaseModel):
-    amount: float # 
-    expense_date: date # 
-    category: str # 
-    description: Optional[str] = None # 
+    amount: float
+    expense_date: date
+    category: str
+    description: Optional[str] = None
 
 # ---------------------------------------------------------------------------
 # Dependency
@@ -56,7 +61,7 @@ def get_bq_client():
         client.close()
 
 # ---------------------------------------------------------------------------
-# BEAUTIFIED FRONTEND (IA 8 Scope)
+# IA 10 BEAUTIFIED FRONTEND [cite: 83, 117]
 # ---------------------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():
@@ -65,151 +70,236 @@ async def dashboard():
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>PropManager | Dashboard</title>
+        <title>PropManager MVP</title>
         <script src="https://cdn.tailwindcss.com"></script>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
         <style>body { font-family: 'Inter', sans-serif; }</style>
     </head>
-    <body class="bg-[#f8fafc] text-[#1e293b]">
-        <nav class="bg-white border-b border-slate-200 px-8 py-4 sticky top-0 z-10">
+    <body class="bg-slate-50 text-slate-900">
+        <nav class="bg-blue-700 text-white p-6 shadow-md mb-8">
             <div class="max-w-6xl mx-auto flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <div class="bg-blue-600 p-2 rounded-lg text-white font-black">PM</div>
-                    <span class="text-xl font-extrabold tracking-tight text-slate-800">PropManager</span>
-                </div>
-                <div class="flex gap-4">
-                    <button onclick="location.reload()" class="text-sm font-semibold text-slate-500 hover:text-blue-600 transition">Refresh Dashboard</button>
-                </div>
+                <h1 class="text-2xl font-extrabold tracking-tight">PropManager <span class="font-normal opacity-75">MVP</span></h1>
             </div>
         </nav>
 
-        <main class="max-w-6xl mx-auto p-8">
-            <div class="flex justify-between items-end mb-10">
-                <div>
-                    <h1 class="text-4xl font-extrabold text-slate-900 mb-2">Portfolio Overview</h1>
-                    <p class="text-slate-500 font-medium">Manage properties, income, and expenses in real-time.</p>
-                </div>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center gap-2">
-                    <span>+</span> Add Property
+        <main class="max-w-6xl mx-auto px-6 pb-20">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-bold">Properties</h2>
+                <button onclick="openPropertyModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-sm transition">
+                    + Add Property
                 </button>
             </div>
 
-            <div id="properties" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                <div class="col-span-full py-20 text-center text-slate-400 animate-pulse font-medium">
-                    Loading your BigQuery data...
-                </div>
+            <div id="properties" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <p class="text-slate-500 animate-pulse">Loading data...</p>
             </div>
         </main>
 
-        <div id="drawer" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden z-20 transition-opacity">
-            <div class="absolute right-0 top-0 bottom-0 w-full max-w-xl bg-white shadow-2xl p-0 flex flex-col">
-                <div class="p-8 border-b border-slate-100 flex justify-between items-start bg-slate-50">
+        <div id="propModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden flex items-center justify-center p-4 z-20">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
+                <h3 id="modalTitle" class="text-2xl font-bold mb-6 text-slate-800 underline decoration-blue-500">Add Property</h3>
+                <form id="propForm" class="space-y-4">
+                    <input type="hidden" id="editId">
                     <div>
-                        <span class="text-xs font-bold text-blue-600 uppercase tracking-widest mb-1 block">Property Details</span>
-                        <h2 id="drawerTitle" class="text-3xl font-black text-slate-800"></h2>
-                        <p id="drawerAddress" class="text-slate-500 font-medium"></p>
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Property ID</label>
+                        <input type="number" id="propId" required class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
-                    <button onclick="closeDrawer()" class="text-slate-400 hover:text-slate-600 text-3xl font-light">&times;</button>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Property Name</label>
+                        <input type="text" id="propName" required class="w-full p-3 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Address</label>
+                        <input type="text" id="propAddress" required class="w-full p-3 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Tenant Name</label>
+                        <input type="text" id="propTenant" class="w-full p-3 border rounded-lg">
+                    </div>
+                    <div class="flex gap-3 pt-4">
+                        <button type="button" onclick="closePropertyModal()" class="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-lg">Cancel</button>
+                        <button type="submit" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded-lg shadow-blue-200">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="drawer" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-30">
+            <div class="absolute right-0 top-0 bottom-0 w-full max-w-lg bg-white shadow-2xl overflow-y-auto p-8">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 id="drawerTitle" class="text-3xl font-black text-slate-800"></h2>
+                    <button onclick="closeDrawer()" class="text-3xl text-slate-300 hover:text-slate-600">&times;</button>
+                </div>
+
+                <div id="drawerSummary" class="grid grid-cols-3 gap-3 mb-10"></div>
+
+                <div class="mb-10">
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h4 class="font-bold text-green-600">Income Records</h4>
+                        <button onclick="toggleForm('incomeForm')" class="text-xs bg-green-50 text-green-700 px-2 py-1 rounded font-bold">+ Record Rent</button>
+                    </div>
+                    <form id="incomeForm" class="hidden mb-4 p-4 bg-green-50 rounded-lg space-y-3">
+                        <input type="number" step="0.01" id="incAmount" placeholder="Amount" required class="w-full p-2 border rounded">
+                        <input type="date" id="incDate" required class="w-full p-2 border rounded">
+                        <input type="text" id="incDesc" placeholder="Description" class="w-full p-2 border rounded">
+                        <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 rounded">Save Income</button>
+                    </form>
+                    <div id="incomeList" class="space-y-2 text-sm"></div>
+                </div>
+
+                <div>
+                    <div class="flex justify-between items-center mb-4 border-b pb-2">
+                        <h4 class="font-bold text-red-600">Expense Records</h4>
+                        <button onclick="toggleForm('expenseForm')" class="text-xs bg-red-50 text-red-700 px-2 py-1 rounded font-bold">+ Record Cost</button>
+                    </div>
+                    <form id="expenseForm" class="hidden mb-4 p-4 bg-red-50 rounded-lg space-y-3">
+                        <input type="number" step="0.01" id="expAmount" placeholder="Amount" required class="w-full p-2 border rounded">
+                        <input type="date" id="expDate" required class="w-full p-2 border rounded">
+                        <input type="text" id="expCat" placeholder="Category (e.g. Repairs)" required class="w-full p-2 border rounded">
+                        <input type="text" id="expDesc" placeholder="Description" class="w-full p-2 border rounded">
+                        <button type="submit" class="w-full bg-red-600 text-white font-bold py-2 rounded">Save Expense</button>
+                    </form>
+                    <div id="expenseList" class="space-y-2 text-sm"></div>
                 </div>
                 
-                <div class="flex-1 overflow-y-auto p-8 space-y-10">
-                    <div id="drawerSummary" class="grid grid-cols-2 gap-4"></div>
-
-                    <div>
-                        <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-                            <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                                <span class="w-2 h-2 bg-green-500 rounded-full"></span> Income Records
-                            </h3>
-                        </div>
-                        <div id="incomeList" class="space-y-3"></div>
-                    </div>
-
-                    <div>
-                        <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
-                            <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                                <span class="w-2 h-2 bg-red-500 rounded-full"></span> Expense Records
-                            </h3>
-                        </div>
-                        <div id="expenseList" class="space-y-3"></div>
-                    </div>
+                <div class="mt-12 pt-8 border-t">
+                    <button id="delBtn" class="w-full text-red-400 hover:text-red-600 font-bold text-sm py-2">Delete This Property</button>
                 </div>
             </div>
         </div>
 
         <script>
-            async function loadProperties() {
-                try {
-                    const res = await fetch('/properties');
-                    const props = await res.json();
-                    const container = document.getElementById('properties');
-                    
-                    if (props.length === 0) {
-                        container.innerHTML = `<div class="col-span-full p-20 text-center bg-white rounded-3xl border border-slate-200 text-slate-400 font-medium">No properties found.</div>`;
-                        return;
-                    }
+            let currentPropId = null;
 
-                    container.innerHTML = props.map(p => `
-                        <div class="group bg-white p-8 rounded-3xl shadow-sm border border-slate-200 hover:shadow-xl hover:border-blue-100 transition-all cursor-pointer" onclick="openDrawer(\${p.property_id}, '\${p.name}', '\${p.address}', '\${p.tenant_name || 'No Active Tenant'}')">
-                            <div class="flex justify-between items-start mb-6">
-                                <div class="bg-blue-50 p-3 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-                                </div>
-                                <span class="px-3 py-1 bg-slate-100 rounded-full text-[10px] font-black uppercase tracking-wider text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">Details</span>
-                            </div>
-                            <h3 class="text-2xl font-black text-slate-800 mb-1 group-hover:text-blue-600 transition-colors">\${p.name}</h3>
-                            <p class="text-slate-400 font-medium mb-4 text-sm">\${p.address}</p>
-                            <div class="flex items-center gap-2 mt-4 pt-4 border-t border-slate-50">
-                                <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500">TN</div>
-                                <span class="text-xs font-bold text-slate-600">\${p.tenant_name || 'Vacant'}</span>
-                            </div>
+            async function loadProperties() {
+                const res = await fetch('/properties');
+                const props = await res.json();
+                const container = document.getElementById('properties');
+                
+                if (props.length === 0) {
+                    container.innerHTML = '<div class="col-span-full p-12 text-center bg-white rounded-xl border border-dashed text-slate-400">No properties found.</div>';
+                    return;
+                }
+
+                container.innerHTML = props.map(p => `
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-lg transition cursor-pointer" onclick="openDrawer(\${p.property_id}, '\${p.name}', '\${p.address}')">
+                        <h3 class="font-bold text-xl text-blue-800 mb-1">\${p.name}</h3>
+                        <p class="text-slate-400 text-sm mb-4 font-medium">\${p.address}</p>
+                        <div class="flex justify-between items-center pt-4 border-t">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Tenant: \${p.tenant_name || 'Vacant'}</span>
+                            <span class="text-blue-500 font-bold text-xs hover:underline">Manage &rarr;</span>
                         </div>
-                    `).join('');
-                } catch (e) {
-                    console.error(e);
+                    </div>
+                `).join('');
+            }
+
+            // [cite: 70, 72, 75]
+            async function openDrawer(id, name, address) {
+                currentPropId = id;
+                document.getElementById('drawer').classList.remove('hidden');
+                document.getElementById('drawerTitle').innerText = name;
+                
+                // Set up Delete button [cite: 69]
+                document.getElementById('delBtn').onclick = () => deleteProperty(id);
+
+                refreshDrawerData(id);
+            }
+
+            async function refreshDrawerData(id) {
+                const [summary, income, expenses] = await Promise.all([
+                    fetch(\`/properties/\${id}/summary\`).then(r => r.json()),
+                    fetch(\`/income/\${id}\`).then(r => r.json()),
+                    fetch(\`/expenses/\${id}\`).then(r => r.json())
+                ]);
+
+                document.getElementById('drawerSummary').innerHTML = `
+                    <div class="p-3 bg-green-50 rounded-lg text-center"><p class="text-[10px] font-bold text-green-600 uppercase">In</p><p class="font-black text-green-700">$\${summary.total_income}</p></div>
+                    <div class="p-3 bg-red-50 rounded-lg text-center"><p class="text-[10px] font-bold text-red-600 uppercase">Out</p><p class="font-black text-red-700">$\${summary.total_expenses}</p></div>
+                    <div class="p-3 bg-blue-50 rounded-lg text-center"><p class="text-[10px] font-bold text-blue-600 uppercase">Net</p><p class="font-black text-blue-700">$\${summary.net_profit}</p></div>
+                `;
+
+                document.getElementById('incomeList').innerHTML = income.map(i => `
+                    <div class="flex justify-between p-3 bg-slate-50 rounded border border-slate-100">
+                        <div><p class="font-bold">$\${i.amount}</p><p class="text-[10px] text-slate-400 uppercase">\${i.payment_date}</p></div>
+                        <p class="text-[10px] text-slate-400 italic font-medium">\${i.description || ''}</p>
+                    </div>
+                `).join('') || '<p class="text-slate-300 italic py-4">No income records.</p>';
+
+                document.getElementById('expenseList').innerHTML = expenses.map(e => `
+                    <div class="flex justify-between p-3 bg-slate-50 rounded border border-slate-100">
+                        <div><p class="font-bold">$\${e.amount}</p><p class="text-[10px] text-red-400 uppercase font-black">\${e.category}</p></div>
+                        <div class="text-right"><p class="text-[10px] text-slate-400 uppercase">\${e.expense_date}</p><p class="text-[10px] text-slate-400 italic">\${e.description || ''}</p></div>
+                    </div>
+                `).join('') || '<p class="text-slate-300 italic py-4">No expense records.</p>';
+            }
+
+            // [cite: 68]
+            document.getElementById('propForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const body = {
+                    property_id: parseInt(document.getElementById('propId').value),
+                    name: document.getElementById('propName').value,
+                    address: document.getElementById('propAddress').value,
+                    tenant_name: document.getElementById('propTenant').value
+                };
+                const res = await fetch('/properties', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) { closePropertyModal(); loadProperties(); }
+                else { alert("Error: Make sure the Property ID is unique!"); }
+            };
+
+            // [cite: 71]
+            document.getElementById('incomeForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const body = {
+                    amount: parseFloat(document.getElementById('incAmount').value),
+                    payment_date: document.getElementById('incDate').value,
+                    description: document.getElementById('incDesc').value
+                };
+                await fetch(\`/income/\${currentPropId}\`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                });
+                toggleForm('incomeForm');
+                refreshDrawerData(currentPropId);
+            };
+
+            // [cite: 73]
+            document.getElementById('expenseForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const body = {
+                    amount: parseFloat(document.getElementById('expAmount').value),
+                    expense_date: document.getElementById('expDate').value,
+                    category: document.getElementById('expCat').value,
+                    description: document.getElementById('expDesc').value
+                };
+                await fetch(\`/expenses/\${currentPropId}\`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body)
+                });
+                toggleForm('expenseForm');
+                refreshDrawerData(currentPropId);
+            };
+
+            // [cite: 69]
+            async function deleteProperty(id) {
+                if (confirm("Are you sure? This will delete the property record.")) {
+                    await fetch(\`/properties/\${id}\`, { method: 'DELETE' });
+                    closeDrawer();
+                    loadProperties();
                 }
             }
 
-            async function openDrawer(id, name, address, tenant) {
-                document.getElementById('drawer').classList.remove('hidden');
-                document.getElementById('drawerTitle').innerText = name;
-                document.getElementById('drawerAddress').innerText = address;
-                
-                try {
-                    const [summary, income, expenses] = await Promise.all([
-                        fetch(\`/properties/\${id}/summary\`).then(r => r.json()),
-                        fetch(\`/income/\${id}\`).then(r => r.json()),
-                        fetch(\`/expenses/\${id}\`).then(r => r.json())
-                    ]);
-
-                    document.getElementById('drawerSummary').innerHTML = `
-                        <div class="p-4 bg-green-50 rounded-2xl border border-green-100">
-                            <span class="text-[10px] font-black text-green-600 uppercase tracking-widest">Income</span>
-                            <p class="text-2xl font-black text-green-700">$\${summary.total_income}</p>
-                        </div>
-                        <div class="p-4 bg-red-50 rounded-2xl border border-red-100">
-                            <span class="text-[10px] font-black text-red-600 uppercase tracking-widest">Expenses</span>
-                            <p class="text-2xl font-black text-red-700">$\${summary.total_expenses}</p>
-                        </div>
-                    `;
-
-                    document.getElementById('incomeList').innerHTML = income.map(i => `
-                        <div class="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
-                            <div><p class="font-bold text-slate-700">Rent Payment</p><p class="text-xs text-slate-400 font-medium">\${i.payment_date}</p></div>
-                            <span class="font-black text-green-600">+\$\${i.amount}</span>
-                        </div>
-                    `).join('') || '<p class="text-slate-400 text-sm italic">No income records found.</p>';
-
-                    document.getElementById('expenseList').innerHTML = expenses.map(e => `
-                        <div class="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
-                            <div><p class="font-bold text-slate-700">\${e.category}</p><p class="text-xs text-slate-400 font-medium">\${e.expense_date}</p></div>
-                            <span class="font-black text-red-600">-\$\${e.amount}</span>
-                        </div>
-                    `).join('') || '<p class="text-slate-400 text-sm italic">No expense records found.</p>';
-
-                } catch (e) { console.error(e); }
-            }
-
+            function openPropertyModal() { document.getElementById('propModal').classList.remove('hidden'); }
+            function closePropertyModal() { document.getElementById('propModal').classList.add('hidden'); document.getElementById('propForm').reset(); }
             function closeDrawer() { document.getElementById('drawer').classList.add('hidden'); }
+            function toggleForm(id) { document.getElementById(id).classList.toggle('hidden'); }
+
             loadProperties();
         </script>
     </body>
@@ -217,36 +307,55 @@ async def dashboard():
     """
 
 # ---------------------------------------------------------------------------
-# Python API Logic (IA 8 Endpoints)
+# API LOGIC (IA 8 Endpoints) [cite: 150]
 # ---------------------------------------------------------------------------
-
 @app.get("/properties")
 def get_all_properties(client: bigquery.Client = Depends(get_bq_client)):
     query = f"SELECT * FROM `{PROJECT_ID}.{DATASET}.properties` ORDER BY property_id DESC"
     return [dict(row) for row in client.query(query)]
 
-@app.get("/properties/{property_id}")
-def get_property(property_id: int, client: bigquery.Client = Depends(get_bq_client)):
-    query = f"SELECT * FROM `{PROJECT_ID}.{DATASET}.properties` WHERE property_id = {property_id}"
-    results = [dict(row) for row in client.query(query)]
-    if not results: raise HTTPException(status_code=404, detail="Property not found")
-    return results[0]
-
 @app.post("/properties", status_code=status.HTTP_201_CREATED)
 def create_property(prop: PropertyCreate, client: bigquery.Client = Depends(get_bq_client)):
-    query = f"INSERT INTO `{PROJECT_ID}.{DATASET}.properties` (property_id, name, address, tenant_name) VALUES ({prop.property_id}, '{prop.name}', '{prop.address}', '{prop.tenant_name}')"
+    query = f"""
+        INSERT INTO `{PROJECT_ID}.{DATASET}.properties` (property_id, name, address, tenant_name)
+        VALUES ({prop.property_id}, '{prop.name}', '{prop.address}', '{prop.tenant_name}')
+    """
     client.query(query).result()
-    return {"message": "Success"}
+    return {"message": "Created"}
+
+@app.delete("/properties/{property_id}")
+def delete_property(property_id: int, client: bigquery.Client = Depends(get_bq_client)):
+    query = f"DELETE FROM `{PROJECT_ID}.{DATASET}.properties` WHERE property_id = {property_id}"
+    client.query(query).result()
+    return {"message": "Deleted"}
 
 @app.get("/income/{property_id}")
 def get_property_income(property_id: int, client: bigquery.Client = Depends(get_bq_client)):
-    query = f"SELECT * FROM `{PROJECT_ID}.{DATASET}.income` WHERE property_id = {property_id}"
+    query = f"SELECT * FROM `{PROJECT_ID}.{DATASET}.income` WHERE property_id = {property_id} ORDER BY payment_date DESC"
     return [dict(row) for row in client.query(query)]
+
+@app.post("/income/{property_id}")
+def create_income(property_id: int, income: IncomeCreate, client: bigquery.Client = Depends(get_bq_client)):
+    query = f"""
+        INSERT INTO `{PROJECT_ID}.{DATASET}.income` (income_id, property_id, amount, payment_date, description)
+        VALUES ((SELECT COALESCE(MAX(income_id), 0) + 1 FROM `{PROJECT_ID}.{DATASET}.income`), {property_id}, {income.amount}, '{income.payment_date}', '{income.description or ""}')
+    """
+    client.query(query).result()
+    return {"message": "Success"}
 
 @app.get("/expenses/{property_id}")
 def get_property_expenses(property_id: int, client: bigquery.Client = Depends(get_bq_client)):
-    query = f"SELECT * FROM `{PROJECT_ID}.{DATASET}.expenses` WHERE property_id = {property_id}"
+    query = f"SELECT * FROM `{PROJECT_ID}.{DATASET}.expenses` WHERE property_id = {property_id} ORDER BY expense_date DESC"
     return [dict(row) for row in client.query(query)]
+
+@app.post("/expenses/{property_id}")
+def create_expense(property_id: int, expense: ExpenseCreate, client: bigquery.Client = Depends(get_bq_client)):
+    query = f"""
+        INSERT INTO `{PROJECT_ID}.{DATASET}.expenses` (expense_id, property_id, amount, expense_date, category, description)
+        VALUES ((SELECT COALESCE(MAX(expense_id), 0) + 1 FROM `{PROJECT_ID}.{DATASET}.expenses`), {property_id}, {expense.amount}, '{expense.expense_date}', '{expense.category}', '{expense.description or ""}')
+    """
+    client.query(query).result()
+    return {"message": "Success"}
 
 @app.get("/properties/{property_id}/summary")
 def get_property_summary(property_id: int, client: bigquery.Client = Depends(get_bq_client)):
@@ -256,11 +365,9 @@ def get_property_summary(property_id: int, client: bigquery.Client = Depends(get
             (SELECT COALESCE(SUM(amount), 0) FROM `{PROJECT_ID}.{DATASET}.expenses` WHERE property_id = {property_id}) as total_expenses
     """
     results = [dict(row) for row in client.query(query)]
-    if results:
-        summary = results[0]
-        summary['net_profit'] = summary['total_income'] - summary['total_expenses']
-        return summary
-    return {"error": "Failed"}
+    summary = results[0]
+    summary['net_profit'] = summary['total_income'] - summary['total_expenses']
+    return summary
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 8080))
