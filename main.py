@@ -22,7 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🚨 CHANGE THIS LINE to your exact Google Cloud Project ID 🚨
+# 🚨 CHANGE THIS LINE carefully! Keep the quotation marks! 🚨
 PROJECT_ID = "property-management-app-492514" 
 DATASET = "property_mgmt"
 
@@ -245,4 +245,20 @@ async def dashboard():
 
                     document.getElementById('panelSummary').innerHTML = `
                         <div class="bg-gray-50 p-4 rounded-xl border border-gray-100"><p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Income</p><p class="text-xl font-black text-emerald-600">$${summary.total_income || 0}</p></div>
-                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-100"><p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Expenses</p><p class="text-xl
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-100"><p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Expenses</p><p class="text-xl font-black text-rose-600">$${summary.total_expenses || 0}</p></div>
+                        <div class="bg-blue-50 p-4 rounded-xl border border-blue-100"><p class="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">Profit</p><p class="text-xl font-black text-blue-700">$${(summary.net_profit || 0).toFixed(2)}</p></div>
+                    `;
+
+                    document.getElementById('incomeList').innerHTML = income.map(i => `
+                        <div class="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+                            <div><p class="text-sm font-bold text-gray-900">$${i.amount}</p><p class="text-[10px] text-gray-400 uppercase">${i.payment_date}</p></div>
+                            <span class="text-xs text-gray-500">${i.description || 'Rent'}</span>
+                        </div>
+                    `).join('') || '<p class="text-xs text-gray-400 italic">No income recorded.</p>';
+
+                    document.getElementById('expenseList').innerHTML = expenses.map(e => `
+                        <div class="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+                            <div><p class="text-sm font-bold text-gray-900">$${e.amount}</p><p class="text-[10px] text-gray-400 uppercase">${e.expense_date}</p></div>
+                            <div class="text-right"><p class="text-xs font-semibold text-rose-600">${e.category}</p><p class="text-[10px] text-gray-400">${e.description || ''}</p></div>
+                        </div>
+                    `).join('') || '<p class
