@@ -372,3 +372,4 @@ def get_property_summary(property_id: int, client: bigquery.Client = Depends(get
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
+    
